@@ -74,16 +74,39 @@ with DAG(
     tags=['fns1-fp']
 ) as dag:
 
-    # download_dataset_task = BashOperator(
-    #     task_id="download_dataset_task",
-    #     bash_command=f"kaggle datasets download rupakroy/online-payments-fraud-detection-dataset -p gs://us-central1-env-fns-b17e3bcb-bucket//data"
+    download_dataset_task = BashOperator(
+        task_id="download_dataset_task",
+        bash_command=f"kaggle datasets download rupakroy/online-payments-fraud-detection-dataset"
+    )
+
+    # check_ls_task = BashOperator(
+    #     task_id="check_ls_task",
+    #     bash_command="ls -lha"
+    # )
+
+    # pwd_task = BashOperator(
+    #     task_id="pwd_task",
+    #     bash_command="pwd"
+    # )
+
+    unzip_dataset_task = BashOperator(
+        task_id="unzip_dataset_task",
+        bash_command=f"unzip online-payments-fraud-detection-dataset.zip"
+    )
+
+    # format_to_parquet_task = PythonOperator(
+    #     task_id="format_to_parquet_task",
+    #     python_callable=format_to_parquet,
+    #     op_kwargs={
+    #         "src_file": f"gs://coba-manual1412/PS_20174392719_1491204439457_log.csv",
+    #     },
     # )
 
     format_to_parquet_task = PythonOperator(
         task_id="format_to_parquet_task",
         python_callable=format_to_parquet,
         op_kwargs={
-            "src_file": f"gs://coba-manual1412/PS_20174392719_1491204439457_log.csv",
+            "src_file": f"{FILE_NAME}.csv",
         },
     )
 
@@ -92,7 +115,7 @@ with DAG(
         python_callable=upload_to_gcs,
         op_kwargs={
             "bucket": BUCKET_NAME,
-            "object_name": f"raw/PS_20174392719_1491204439457_log.parquet",
+            "object_name": f"abc/PS_20174392719_1491204439457_log.parquet",
             "local_file": f"PS_20174392719_1491204439457_log.parquet",
         },
     )
@@ -102,12 +125,12 @@ with DAG(
         table_resource={
             "tableReference": {
                 "projectId": "final-project-team1",
-                "datasetId": "dags_test",
-                "tableId": "online_fraud_test",
+                "datasetId": "final_project_test",
+                "tableId": "test_fraud_online",
             },
             "externalDataConfiguration": {
                 "sourceFormat": "PARQUET",
-                "sourceUris": [f"gs://coba-manual1412/raw/PS_20174392719_1491204439457_log.parquet"],
+                "sourceUris": [f"gs://coba-manual1412/abc/PS_20174392719_1491204439457_log.parquet"],
             },
         },
     )
@@ -120,6 +143,6 @@ with DAG(
     # )
 
     # download_dataset_task 
-    # >> 
-    format_to_parquet_task >> container_to_gcs_task >> gcs_to_bigquery 
+    # >> check_ls_task
+    download_dataset_task >> unzip_dataset_task >> format_to_parquet_task >> container_to_gcs_task >> gcs_to_bigquery 
     # >> trigger_dbt_task
