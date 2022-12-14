@@ -15,7 +15,6 @@ with DAG(
     schedule_interval="@daily",
     default_args=default_args,
     description='liveness monitoring dag',
-    schedule_interval=None,
     dagrun_timeout=timedelta(minutes=20),
     max_active_runs=1,
     tags=['fns1-fp']
