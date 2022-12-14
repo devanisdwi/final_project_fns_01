@@ -31,29 +31,30 @@ with DAG(
 
     download_dataset_task = BashOperator(
         task_id="download_dataset_task",
-        bash_command=f"curl -sSL {dataset_url} > {path_to_local_home}/{dataset_file}"
+        bash_command=f"~/.local/bin/kaggle datasets download rupakroy/online-payments-fraud-detection-dataset -p gs://us-central1-env-fns-b17e3bcb-bucket//data"
     )
 
-    gcs_to_bigquery = BigQueryCreateExternalTableOperator(
-        task_id="bigquery_external_table_task",
-        table_resource={
-            "tableReference": {
-                "projectId": PROJECT_ID,
-                "datasetId": BIGQUERY_DATASET,
-                "tableId": "external_table",
-            },
-            "externalDataConfiguration": {
-                "sourceFormat": "PARQUET",
-                "sourceUris": [f"gs://{BUCKET_NAME}/raw/{PARQUET_FILE}"],
-            },
-        },
-    )
+    # gcs_to_bigquery = BigQueryCreateExternalTableOperator(
+    #     task_id="bigquery_external_table_task",
+    #     table_resource={
+    #         "tableReference": {
+    #             "projectId": PROJECT_ID,
+    #             "datasetId": BIGQUERY_DATASET,
+    #             "tableId": "external_table",
+    #         },
+    #         "externalDataConfiguration": {
+    #             "sourceFormat": "PARQUET",
+    #             "sourceUris": [f"gs://{BUCKET_NAME}/raw/{PARQUET_FILE}"],
+    #         },
+    #     },
+    # )
 
-    trigger_dbt_task = DbtCloudRunJobOperator(
-        task_id="trigger_job_run1",
-        job_id=48617,
-        check_interval=10,
-        timeout=300,
-    )
+    # trigger_dbt_task = DbtCloudRunJobOperator(
+    #     task_id="trigger_job_run1",
+    #     job_id=48617,
+    #     check_interval=10,
+    #     timeout=300,
+    # )
 
-    download_dataset_task >> gcs_to_bigquery >> trigger_dbt_task
+    download_dataset_task 
+    # >> gcs_to_bigquery >> trigger_dbt_task
