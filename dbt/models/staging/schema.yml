@@ -1,0 +1,9 @@
+version: 2
+
+
+sources:
+  - name: timestamp_fraud_complete
+    schema: timestamp_fraud_complete
+    tables:
+      - name: raw_fraud
+        identifier: raw_fraud
