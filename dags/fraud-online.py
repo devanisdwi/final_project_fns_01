@@ -1,9 +1,16 @@
 """A liveness prober dag for monitoring composer.googleapis.com/environment/healthy."""
+# https://github.com/GoogleCloudPlatform/professional-services/blob/main/examples/dbt-on-cloud-composer/optimized/dag/dbt_with_kubernetes_optimized.py
+import os
 import airflow
 import logging
+import json
 from airflow import DAG
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python import PythonOperator
+
+from airflow.models import Variable
+from airflow.kubernetes.secret import Secret
+from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
 
 # from google.cloud import storage
 # from google.oauth2 import service_account
@@ -24,9 +31,39 @@ import pyarrow.json as jsw
 import pyarrow.parquet as pq
 
 PROJECT_ID = 'final-project-team1'
-BUCKET_NAME = 'coba-manual1412'
+BUCKET_NAME = 'us-central1-env-fns-b17e3bcb-bucket'
+AIRFLOW_DATA_PATH = '/home/airflow/gcs/data'
 FILE_NAME = 'PS_20174392719_1491204439457_log'
+DATASET_ID = 'dags_tests2_full'
 
+# The environment variables from Cloud Composer
+env = Variable.get("run_environment")
+project = os.getenv("GCP_PROJECT")
+
+# Airflow macro - Execution date
+DS = '{{ ds }}'
+
+# Select and use the correct Docker image from the private Google Cloud Repository (GCR)
+IMAGE = 'gcr.io/{project}/dbt-builder-basic:latest'.format(
+    project=project
+)
+
+# A Secret is an object that contains a small amount of sensitive data such as
+# a password, a token, or a key. Such information might otherwise be put in a
+# Pod specification or in an image; putting it in a Secret object allows for
+# more control over how it is used, and reduces the risk of accidental
+# exposure.
+secret_volume = Secret(
+    deploy_type='volume',
+    # Path where we mount the secret as volume
+    deploy_target='/var/secrets/google',
+    # Name of Kubernetes Secret
+    secret='dbt-sa-secret',
+    # Key in the form of service account file name
+    key='key.json'
+)
+#################################################################################################
+# Functions to pass into dags
 def format_to_parquet(src_file: str):
     """Convert CSV file to PARQUET file format"""
     if not src_file.endswith('.csv'):
@@ -62,8 +99,99 @@ def upload_to_gcs(bucket: str, object_name: str, local_file: str):
     blob = buckt.blob(object_name)
     blob.upload_from_filename(local_file)
 
+#################################################################################################
+# dbt default variables
+# These variables will be passed into the dbt run
+# Any variables defined here, can be used inside dbt
+
+default_dbt_vars = {
+        "project_id": project,
+        # Example on using Cloud Composer's variable to be passed to dbt
+        "bigquery_location": Variable.get("bigquery_location"),
+        "key_file_dir": '/var/secrets/google/key.json',
+        "source_data_project": Variable.get("source_data_project")
+    }
+
+# dbt default arguments
+# These arguments will be used for running the dbt command
+
+default_dbt_args = {
+    # Setting the dbt variables
+    "--vars": default_dbt_vars,
+    # Define which target to load
+    "--target": env,
+    # Which directory to look in for the profiles.yml file.
+    "--profiles-dir": ".dbt"
+}
+
+def get_dbt_full_args(dbt_args=None):
+    """The function will return the dbt arguments.
+    It should be called from an operator to get the execution date from Airflow macros"""
+    # Add the execution date as variable in the dbt run
+    dbt_full_vars = default_dbt_vars
+    dbt_full_vars['execution_date'] = dbt_args['execution_date']
+
+    # Specifcy which model should run
+    dbt_full_args = default_dbt_args
+    dbt_full_args['--models'] = dbt_args['model']
+
+    # Converting the dbt_full_args into python list
+    # The python list will be used for the dbt command
+    # Example output ["--vars","{project_id: project}","--target","remote"]
+
+    dbt_cli_args = []
+    for key, value in dbt_full_args.items():
+        dbt_cli_args.append(key)
+
+        if isinstance(value, (list, dict)):
+            value = json.dumps(value)
+
+        # This part is to handle arguments with no value. e.g {"--store-failures": None}
+        if value is not None:
+            dbt_cli_args.append(value)
+
+    return dbt_cli_args
+
+def run_dbt_on_kubernetes(cmd=None, dbt_args=None, **context):
+    """This function will execute the KubernetesPodOperator as an Airflow task"""
+    dbt_full_args = get_dbt_full_args(dbt_args)
+
+    execution_date = dbt_args['execution_date']
+
+    # The pod id should be unique for each execution date
+    pod_id = 'dbt_cli_{}_{}'.format(cmd, execution_date)
+    KubernetesPodOperator(
+        task_id=pod_id,
+        name=pod_id,
+        image_pull_policy='Always',
+        arguments=[cmd] + dbt_full_args,
+        namespace='dbt-k8s',
+        service_account_name="env-fns-sa-old",
+        affinity={
+        'nodeAffinity': {
+            'requiredDuringSchedulingIgnoredDuringExecution': {
+                'nodeSelectorTerms': [{
+                    'matchExpressions': [{
+                        'key': 'cloud.google.com/gke-nodepool',
+                        'operator': 'In',
+                        'values': [
+                            'dbt-pool',
+                        ]
+                    }]
+                }]
+            }
+        }
+    },
+        get_logs=True,  # Capture logs from the pod
+        log_events_on_failure=True,  # Capture and log events in case of pod failure
+        is_delete_operator_pod=True, # To clean up the pod after runs
+        image=IMAGE,
+    ).execute(context)
+#################################################################################################
+
 default_args = {
     "owner": "fastandseriouse",
+    'depends_on_past': False,
     'start_date': airflow.utils.dates.days_ago(0),
     'retries': 1,
     'retry_delay': timedelta(minutes=5)
@@ -73,7 +201,7 @@ with DAG(
     'fraud-online-pipeline',
     schedule_interval="@daily",
     default_args=default_args,
-    description='liveness monitoring dag',
+    description='End to End Online Fraud ELTL',
     dagrun_timeout=timedelta(minutes=20),
     max_active_runs=1,
     tags=['fns1-fp']
@@ -81,75 +209,64 @@ with DAG(
 
     download_to_gcs_task = BashOperator(
         task_id="download_to_gcs_task",
-        bash_command=f"kaggle datasets download rupakroy/online-payments-fraud-detection-dataset -p /home/airflow/gcs/data"
+        bash_command=f"kaggle datasets download rupakroy/online-payments-fraud-detection-dataset -p {AIRFLOW_DATA_PATH}"
     )
-
-    # check_ls_task = BashOperator(
-    #     task_id="check_ls_task",
-    #     bash_command="ls -lha"
-    # )
-
-    # pwd_task = BashOperator(
-    #     task_id="pwd_task",
-    #     bash_command="pwd"
-    # )
 
     unzip_dataset_task = BashOperator(
         task_id="unzip_dataset_task",
-        bash_command=f"unzip /home/airflow/gcs/data/online-payments-fraud-detection-dataset.zip -d /home/airflow/gcs/data"
+        bash_command=f"unzip -fo {AIRFLOW_DATA_PATH}/online-payments-fraud-detection-dataset.zip -d {AIRFLOW_DATA_PATH}"
     )
-
-    # format_to_parquet_task = PythonOperator(
-    #     task_id="format_to_parquet_task",
-    #     python_callable=format_to_parquet,
-    #     op_kwargs={
-    #         "src_file": f"gs://coba-manual1412/PS_20174392719_1491204439457_log.csv",
-    #     },
-    # )
 
     format_to_parquet_task = PythonOperator(
         task_id="format_to_parquet_task",
         python_callable=format_to_parquet,
         op_kwargs={
-            "src_file": f"/home/airflow/gcs/data/{FILE_NAME}.csv",
+            "src_file": f"{AIRFLOW_DATA_PATH}/{FILE_NAME}.csv",
         },
     )
 
-    create_dataset = BigQueryCreateEmptyDatasetOperator(task_id="create-dataset", dataset_id='dags_tests2_full')
-
-    # container_to_gcs_task = PythonOperator(
-    #     task_id="container_to_gcs_task",
-    #     python_callable=upload_to_gcs,
-    #     op_kwargs={
-    #         "bucket": BUCKET_NAME,
-    #         "object_name": f"abc/PS_20174392719_1491204439457_log.parquet",
-    #         "local_file": f"PS_20174392719_1491204439457_log.parquet",
-    #     },
-    # )
+    create_empty_stg = BigQueryCreateEmptyDatasetOperator(
+        task_id="create_empty_stg_dataset", 
+        dataset_id=f'{DATASET_ID}'
+    )
 
     gcs_to_bigquery = BigQueryCreateExternalTableOperator(
-        task_id="bigquery_external_table_task",
+        task_id="gcs_to_bigquery_task",
         table_resource={
             "tableReference": {
-                "projectId": "final-project-team1",
-                "datasetId": "final_project_test",
+                "projectId": f"{PROJECT_ID}",
+                "datasetId": f"{DATASET_ID}",
                 "tableId": "fraud_online_success_full_dag",
             },
             "externalDataConfiguration": {
                 "sourceFormat": "PARQUET",
-                "sourceUris": [f"gs://us-central1-env-fns-b17e3bcb-bucket/data/PS_20174392719_1491204439457_log.parquet"],
+                "sourceUris": [f"gs://{BUCKET_NAME}/data/{FILE_NAME}.parquet"],
             },
         },
     )
 
-    # trigger_dbt_task = DbtCloudRunJobOperator(
-    #     task_id="trigger_job_run1",
-    #     job_id=48617,
-    #     check_interval=10,
-    #     timeout=300,
-    # )
+    dbt_run_staging = PythonOperator(
+        task_id='dbt_run_staging',
+        provide_context=True,
+        python_callable=run_dbt_on_kubernetes,
+        op_kwargs={
+                "cmd": "run",
+                "dbt_args":{"execution_date": DS,"model":"staging"}
+            }
+    )
 
-    # download_dataset_task 
+    dbt_run_warehouse = PythonOperator(
+        task_id='dbt_run_warehouse',
+        provide_context=True,
+        python_callable=run_dbt_on_kubernetes,
+        op_kwargs={
+                "cmd": "run",
+                "dbt_args":{"execution_date": DS,"model":"warehouse"}
+            }
+    )
+
+    ######################################### Run the Dags ######################################################
     # >> check_ls_task
-    download_to_gcs_task >> unzip_dataset_task >> format_to_parquet_task >> create_dataset >> gcs_to_bigquery 
-    # >> trigger_dbt_task
+    download_to_gcs_task >> unzip_dataset_task >> format_to_parquet_task >> create_empty_stg >> gcs_to_bigquery\
+        >> dbt_run_staging >> dbt_run_warehouse
+    # >> dbt_test_staging >> dbt_test_warehouse
