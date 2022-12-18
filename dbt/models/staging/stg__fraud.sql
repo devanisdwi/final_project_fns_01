@@ -1,10 +1,9 @@
 {{ config(materialized='table')}}
 
-
 SELECT     
     transactionID as id_transaction,
     step,
-    timestamp,
+    timestamp as date_transaction,
     type as payment_type,
     amount,
     nameOrig as name_sender,
@@ -15,5 +14,5 @@ SELECT
     newbalanceDest as new_balance_recipient,
     {{ decode_isFraud('isFraud') }} as is_fraud,
     {{ decode_isFlaggedFraud('isFlaggedFraud') }} as is_flagged_fraud,
-FROM {{ source('timestamp_fraud_complete', 'raw_fraud') }}
-ORDER BY timestamp, step
+FROM {{ source('dbt_testing', 'raw_fraud') }}
+ORDER BY timestamp

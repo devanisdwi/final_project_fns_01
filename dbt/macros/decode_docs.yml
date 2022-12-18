@@ -12,9 +12,3 @@ macros:
       - name: isFlaggedFraud
         type: column name
         description: "The name of isFlaggedFraud column which contain the abbreviation 0 and 1"
-
-  - name: add_id_payment
-    arguments:
-      - name: type
-        type: column name
-        description: "The name of payment_type column which contain the abbreviation 0 and 1"
