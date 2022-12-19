@@ -180,7 +180,7 @@ default_args = {
     "owner": "fastandseriouse",
     'depends_on_past': False,
     'start_date': airflow.utils.dates.days_ago(0),
-    'retries': 1,
+    'retries': 0,
     'retry_delay': timedelta(minutes=5)
 }
 

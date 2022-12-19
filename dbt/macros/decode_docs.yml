@@ -1,0 +1,14 @@
+version: 2
+
+macros:
+  - name: decode_isFraud
+    arguments:
+      - name: isFraud
+        type: column name
+        description: "The name of isFraud column which contain the abbreviation 0 and 1"
+
+  - name: decode_isFlaggedFraud
+    arguments:
+      - name: isFlaggedFraud
+        type: column name
+        description: "The name of isFlaggedFraud column which contain the abbreviation 0 and 1"
