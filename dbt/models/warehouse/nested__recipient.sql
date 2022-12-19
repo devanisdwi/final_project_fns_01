@@ -1,5 +1,3 @@
-{{ config(materialized='table')}}
-
 WITH Flattened AS (
   SELECT DISTINCT name_recipient, date_transaction, id_payment_type, id_sender, is_fraud, is_flagged_fraud
   FROM {{ ref('fact__tables') }}

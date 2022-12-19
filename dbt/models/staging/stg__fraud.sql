@@ -1,5 +1,3 @@
-{{ config(materialized='table')}}
-
 SELECT     
     transactionID as id_transaction,
     step,
