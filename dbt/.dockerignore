@@ -1,0 +1,8 @@
+__pycache__
+.git
+.gitignore
+*.sh
+dbt_packages/
+logs/
+target/
+/.img/
