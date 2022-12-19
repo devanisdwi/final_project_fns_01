@@ -38,8 +38,10 @@ CREDS_FILE= 'pubsubkey.json'
 FILE_NAME = 'PS_20174392719_1491204439457_log'
 os.environ['GCP_CREDS'] = f'{AIRFLOW_DATA_PATH}/{CREDS_FILE}'
 
-TOPIC_NAME = 'projects/final-project-team1/topics/coba-stream'
-SUBS_NAME = 'projects/final-project-team1/subscriptions/coba-stream-sub'
+TOPIC_NAME = 'coba-stream'
+TOPIC_ID = f'projects/final-project-team1/topics/{TOPIC_NAME}'
+SUBS_NAME = 'coba-stream-sub'
+SUBS_ID = f'projects/final-project-team1/subscriptions/{SUBS_NAME}'
 
 def push_messages():
     publisher = pubsub_v1.PublisherClient()
@@ -64,7 +66,7 @@ def push_messages():
         }
         try:
             attr_json = json.dumps(features)
-            future = publisher.publish(TOPIC_NAME, attr_json.encode('utf-8'))
+            future = publisher.publish(TOPIC_ID, attr_json.encode('utf-8'))
         except Exception as e:
             print(f"Exception while producing record value - {features}: {e}")
         else:
@@ -82,8 +84,8 @@ def pull_messages():
         print(f'data: {message.data}')
         message.ack()
 
-    stream_msg = subscriber.subscribe(SUBS_NAME, callback=callback)
-    print(f'Listening for messages on {SUBS_NAME}')
+    stream_msg = subscriber.subscribe(SUBS_ID, callback=callback)
+    print(f'Listening for messages on {SUBS_ID}')
 
     with subscriber: # Automate the response
         try:
