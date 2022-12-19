@@ -13,7 +13,7 @@ profile: 'transformation'
 # The `model-paths` config, for example, states that models in this project can be
 # found in the "models/" directory. You probably won't need to change these!
 model-paths: ["models"]
-analysis-paths: ["analyses"]
+analysis-paths: ["analysis"]
 test-paths: ["tests"]
 seed-paths: ["seeds"]
 macro-paths: ["macros"]
@@ -37,4 +37,6 @@ models:
     staging:
       +materialized: view
     warehouse:
-      +materialized: view
+      +materialized: table
+      +docs:
+        node_color: "purple"
