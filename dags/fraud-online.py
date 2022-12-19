@@ -275,5 +275,5 @@ with DAG(
     ######################################### Run the Dags ######################################################
     # >> check_ls_task
     download_to_gcs_task >> unzip_dataset_task >> format_to_parquet_task >> create_empty_stg >> gcs_to_bigquery\
-        >> dbt_run_staging >> dbt_test_staging >> dbt_run_warehouse > dbt_test_warehouse
+        >> dbt_run_staging >> dbt_test_staging >> dbt_run_warehouse >> dbt_test_warehouse
     # >> dbt_test_staging >> dbt_test_warehouse
