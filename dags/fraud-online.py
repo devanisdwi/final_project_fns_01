@@ -31,7 +31,7 @@ import pyarrow.json as jsw
 import pyarrow.parquet as pq
 
 PROJECT_ID = 'final-project-team1'
-BUCKET_NAME = 'us-central1-env-fns-b17e3bcb-bucket'
+BUCKET_NAME = 'us-west2-env-fns-test2-e8f06b0a-bucket'
 AIRFLOW_DATA_PATH = '/home/airflow/gcs/data'
 FILE_NAME = 'PS_20174392719_1491204439457_log'
 DATASET_ID = 'dags_tests2_full'
@@ -152,6 +152,7 @@ def get_dbt_full_args(dbt_args=None):
 
     return dbt_cli_args
 
+# https://groups.google.com/g/cloud-composer-discuss/c/Lf0wa2ccI2c
 def run_dbt_on_kubernetes(cmd=None, dbt_args=None, **context):
     """This function will execute the KubernetesPodOperator as an Airflow task"""
     dbt_full_args = get_dbt_full_args(dbt_args)
@@ -165,27 +166,13 @@ def run_dbt_on_kubernetes(cmd=None, dbt_args=None, **context):
         name=pod_id,
         image_pull_policy='Always',
         arguments=[cmd] + dbt_full_args,
-        namespace='dbt-k8s',
-        service_account_name="env-fns-sa-old",
-        affinity={
-        'nodeAffinity': {
-            'requiredDuringSchedulingIgnoredDuringExecution': {
-                'nodeSelectorTerms': [{
-                    'matchExpressions': [{
-                        'key': 'cloud.google.com/gke-nodepool',
-                        'operator': 'In',
-                        'values': [
-                            'dbt-pool',
-                        ]
-                    }]
-                }]
-            }
-        }
-    },
+        namespace='default',
+        service_account_name="default",
         get_logs=True,  # Capture logs from the pod
         log_events_on_failure=True,  # Capture and log events in case of pod failure
         is_delete_operator_pod=True, # To clean up the pod after runs
-        image=IMAGE,
+        image=IMAGE
+        # secrets=[secret_volume]  # Set Kubernetes secret reference to dbt's service account JSON
     ).execute(context)
 #################################################################################################
 
@@ -214,7 +201,7 @@ with DAG(
 
     unzip_dataset_task = BashOperator(
         task_id="unzip_dataset_task",
-        bash_command=f"unzip -fo {AIRFLOW_DATA_PATH}/online-payments-fraud-detection-dataset.zip -d {AIRFLOW_DATA_PATH}"
+        bash_command=f"unzip -o {AIRFLOW_DATA_PATH}/online-payments-fraud-detection-dataset.zip -d {AIRFLOW_DATA_PATH}"
     )
 
     format_to_parquet_task = PythonOperator(
