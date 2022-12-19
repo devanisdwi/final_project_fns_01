@@ -186,7 +186,7 @@ default_args = {
 
 with DAG(
     'fraud-online-pipeline',
-    schedule_interval="@daily",
+    # schedule_interval="@daily",
     default_args=default_args,
     description='End to End Online Fraud ELTL',
     dagrun_timeout=timedelta(minutes=20),
