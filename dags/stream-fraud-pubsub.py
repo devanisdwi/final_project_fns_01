@@ -1,5 +1,6 @@
 """ SECOND DAG FOR STREAMING DATA PIPELINE """
 # https://github.com/fahrulrozim/final-project/tree/main/pubsub-stream
+# https://airflow.apache.org/docs/apache-airflow-providers-google/stable/operators/cloud/pubsub.html
 import os
 import csv
 import json
@@ -19,13 +20,26 @@ from airflow import DAG
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python import PythonOperator
 
+from airflow.providers.google.cloud.operators.pubsub import (
+    PubSubCreateSubscriptionOperator,
+    PubSubCreateTopicOperator,
+    PubSubDeleteSubscriptionOperator,
+    PubSubDeleteTopicOperator,
+    PubSubPublishMessageOperator,
+    PubSubPullOperator,
+)
+from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+from airflow.utils.trigger_rule import TriggerRule
+
+PROJECT_ID = os.getenv("GCP_PROJECT")
+
 AIRFLOW_DATA_PATH = '/home/airflow/gcs/data'
 CREDS_FILE= 'pubsubkey.json'
 FILE_NAME = 'PS_20174392719_1491204439457_log'
 os.environ['GCP_CREDS'] = f'{AIRFLOW_DATA_PATH}/{CREDS_FILE}'
 
-TOPIC_NAME = 'projects/final-project-team1/topics/coba-strm'
-SUBS_NAME = 'projects/final-project-team1/subscriptions/coba-subscrib'
+TOPIC_NAME = 'projects/final-project-team1/topics/coba-stream'
+SUBS_NAME = 'projects/final-project-team1/subscriptions/coba-stream-sub'
 
 def push_messages():
     publisher = pubsub_v1.PublisherClient()
@@ -98,15 +112,35 @@ with DAG(
     tags=['fns1-sf']
 ) as dag:
 
+    create_topic_task = PubSubCreateTopicOperator(
+        task_id="create_topic_task",
+        topic=TOPIC_NAME,
+        project_id=PROJECT_ID,
+        fail_if_exists=False
+    )
+
     push_messages_task = PythonOperator(
         task_id="push_messages_task",
         python_callable=push_messages,
     )
+
+    # subscribe_task = PubSubCreateSubscriptionOperator(
+    #     task_id="subscribe_task", 
+    #     project_id=PROJECT_ID, 
+    #     topic=TOPIC_NAME
+    # )
 
     pull_messages_task = PythonOperator(
         task_id="pull_messages_task",
         python_callable=pull_messages,
     )
 
+    delete_topic_task = PubSubDeleteTopicOperator(
+        task_id="delete_topic_task", 
+        topic=TOPIC_NAME, 
+        project_id=PROJECT_ID)
+
+    delete_topic_task.trigger_rule = TriggerRule.ALL_DONE
+
     ######################################### Run the Dags ######################################################
-    push_messages_task >> pull_messages_task
+    create_topic_task >> push_messages_task >> pull_messages_task >> delete_topic_task
