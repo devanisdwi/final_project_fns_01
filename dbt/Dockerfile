@@ -10,7 +10,8 @@ RUN apt-get update -y && \
   rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install data build tool
-RUN pip install -U pip
+# RUN pip install -U pip
+RUN python -m pip install --upgrade pip setuptools wheel --no-cache-dir
 RUN pip install dbt-bigquery==0.20.1
 
 # Set working directory

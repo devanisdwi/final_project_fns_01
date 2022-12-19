@@ -242,6 +242,16 @@ with DAG(
             }
     )
 
+    dbt_test_staging = PythonOperator(
+        task_id='dbt_test_staging',
+        provide_context=True,
+        python_callable=run_dbt_on_kubernetes,
+        op_kwargs={
+                "cmd": "test",
+                "dbt_args":{"execution_date": DS,"model":"staging","--store-failures": None}
+            }
+    )
+
     dbt_run_warehouse = PythonOperator(
         task_id='dbt_run_warehouse',
         provide_context=True,
@@ -252,8 +262,18 @@ with DAG(
             }
     )
 
+    dbt_test_warehouse = PythonOperator(
+        task_id='dbt_test_warehouse',
+        provide_context=True,
+        python_callable=run_dbt_on_kubernetes,
+        op_kwargs={
+                "cmd": "test",
+                "dbt_args":{"execution_date": DS,"model":"warehouse","--store-failures": None}
+            }
+    )
+
     ######################################### Run the Dags ######################################################
     # >> check_ls_task
     download_to_gcs_task >> unzip_dataset_task >> format_to_parquet_task >> create_empty_stg >> gcs_to_bigquery\
-        >> dbt_run_staging >> dbt_run_warehouse
+        >> dbt_run_staging >> dbt_test_staging >> dbt_run_warehouse > dbt_test_warehouse
     # >> dbt_test_staging >> dbt_test_warehouse
