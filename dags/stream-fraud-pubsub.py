@@ -30,7 +30,7 @@ SUBS_NAME = 'projects/final-project-team1/subscriptions/coba-subscrib'
 def push_messages():
     publisher = pubsub_v1.PublisherClient()
 
-    file = open(f'{FILE_NAME}.csv')
+    file = open(f'{AIRFLOW_DATA_PATH}/{FILE_NAME}.csv')
     csvreader = csv.reader(file)
     header = next(csvreader) # skip the header (first row)
 
