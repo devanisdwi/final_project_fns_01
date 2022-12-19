@@ -145,4 +145,8 @@ with DAG(
     delete_topic_task.trigger_rule = TriggerRule.ALL_DONE
 
     ######################################### Run the Dags ######################################################
-    create_topic_task >> push_messages_task >> pull_messages_task >> delete_topic_task
+    create_topic_task >> push_messages_task
+    create_topic_task >> pull_messages_task
+
+    push_messages_task >> delete_topic_task
+    pull_messages_task >> delete_topic_task
