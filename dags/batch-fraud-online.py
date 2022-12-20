@@ -17,12 +17,12 @@ from airflow_dbt.operators.dbt_operator import (
     DbtDocsGenerateOperator,
 )
 # https://stackoverflow.com/questions/55391105/location-of-home-airflow
-# from airflow.providers.google.cloud.operators.bigquery import (
-#     BigQueryCreateEmptyDatasetOperator,
-#     BigQueryCreateExternalTableOperator,
-#     BigQueryDeleteDatasetOperator,
-#     BigQueryInsertJobOperator,
-# )
+from airflow.providers.google.cloud.operators.bigquery import (
+    BigQueryCreateEmptyDatasetOperator,
+    BigQueryCreateExternalTableOperator,
+    BigQueryDeleteDatasetOperator,
+    BigQueryInsertJobOperator,
+)
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from datetime import timedelta
 # Imports the Google Cloud client library
@@ -36,7 +36,12 @@ import pyarrow.parquet as pq
 PROJECT_ID = 'final-project-team1'
 BUCKET_NAME = 'us-west2-env-fns-test2-e8f06b0a-bucket'
 AIRFLOW_DATA_PATH = '/home/airflow/gcs/data'
-FILE_NAME = 'PS_20174392719_1491204439457_log'
+# FILE_NAME = 'PS_20174392719_1491204439457_log'
+FILE_NAME = 'raw_fraud'
+# KAGGLE_USER_DATA = 'rupakroy/online-payments-fraud-detection-dataset'
+KAGGLE_USER_DATA = 'devanisdwisutrisno/fraud-transactions-with-timestamp'
+KAGGLE_DATASET = KAGGLE_USER_DATA.split('/')[1].strip()
+
 DATASET_ID = 'final_project_data'
 TABLE_NAME = 'raw_data'
 
@@ -60,15 +65,15 @@ def format_to_parquet(src_file: str):
     # bucket = storage_client.bucket(BUCKET_NAME)
     # blob = bucket.blob(f'{FILE_NAME}.csv')
     # blob.download_to_filename(f'{FILE_NAME}.csv')
-    client_bq = bigquery.Client()
+    client_bq = bigquery.Client(location='us-west2')
     client_bq.create_dataset(DATASET_ID, exists_ok=True)
 
-    # src_file = f'{AIRFLOW_DATA_PATH}/{FILE_NAME}.csv'
-    # # fs = gcsfs.GCSFileSystem(project='foo')
-    # # with fs.open("bucket/foo/bar.csv", 'rb') as csv_file:
-    # #     pv.read_csv(csv_file)
-    # table = pv.read_csv(src_file)
-    # pq.write_table(table, src_file.replace('.csv', '.parquet'))
+    src_file = f'{AIRFLOW_DATA_PATH}/{FILE_NAME}.csv'
+    # fs = gcsfs.GCSFileSystem(project='foo')
+    # with fs.open("bucket/foo/bar.csv", 'rb') as csv_file:
+    #     pv.read_csv(csv_file)
+    table = pv.read_csv(src_file)
+    pq.write_table(table, src_file.replace('.csv', '.parquet'))
 
 def upload_to_gcs(bucket: str, object_name: str, local_file: str):
     """
@@ -110,12 +115,12 @@ with DAG(
 
     download_to_gcs_task = BashOperator(
         task_id="download_to_gcs_task",
-        bash_command=f"kaggle datasets download rupakroy/online-payments-fraud-detection-dataset -p {AIRFLOW_DATA_PATH}"
+        bash_command=f"kaggle datasets download {KAGGLE_USER_DATA} -p {AIRFLOW_DATA_PATH}"
     )
 
     unzip_dataset_task = BashOperator(
         task_id="unzip_dataset_task",
-        bash_command=f"unzip -o {AIRFLOW_DATA_PATH}/online-payments-fraud-detection-dataset.zip -d {AIRFLOW_DATA_PATH}"
+        bash_command=f"unzip -o {AIRFLOW_DATA_PATH}/{KAGGLE_DATASET}.zip -d {AIRFLOW_DATA_PATH}"
     )
 
     format_to_parquet_task = PythonOperator(
@@ -126,28 +131,28 @@ with DAG(
         },
     )
 
-    # gcs_to_bigquery = BigQueryCreateExternalTableOperator(
-    #     task_id="gcs_to_bigquery_task",
-    #     table_resource={
-    #         "tableReference": {
-    #             "projectId": f"{PROJECT_ID}",
-    #             "datasetId": f"{DATASET_ID}",
-    #             "tableId": "raw_fraud",
-    #         },
-    #         "externalDataConfiguration": {
-    #             "sourceFormat": "PARQUET",
-    #             "sourceUris": [f"gs://{BUCKET_NAME}/data/{FILE_NAME}.parquet"],
-    #         },
-    #     },
-    # )
-
-    gcs_to_bigquery = GCSToBigQueryOperator(
+    gcs_to_bigquery = BigQueryCreateExternalTableOperator(
         task_id="gcs_to_bigquery_task",
-        source_format='CSV',
-        bucket=f"{BUCKET_NAME}",
-        source_objects = [f"data/{FILE_NAME}.csv"],
-        destination_project_dataset_table = f'{DATASET_ID}.{TABLE_NAME}',
+        table_resource={
+            "tableReference": {
+                "projectId": f"{PROJECT_ID}",
+                "datasetId": f"{DATASET_ID}",
+                "tableId": "raw_fraud",
+            },
+            "externalDataConfiguration": {
+                "sourceFormat": "PARQUET",
+                "sourceUris": [f"gs://{BUCKET_NAME}/data/{FILE_NAME}.parquet"],
+            },
+        },
     )
+
+    # gcs_to_bigquery = GCSToBigQueryOperator(
+    #     task_id="gcs_to_bigquery_task",
+    #     source_format='CSV',
+    #     bucket=f"{BUCKET_NAME}",
+    #     source_objects = [f"data/{FILE_NAME}.csv"],
+    #     destination_project_dataset_table = f'{DATASET_ID}.{TABLE_NAME}',
+    # )
 
     dbt_run_staging = DbtRunOperator(
         task_id='dbt_run_staging',

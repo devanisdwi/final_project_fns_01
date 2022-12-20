@@ -9,5 +9,5 @@ transformation: # this needs to match the profile in your dbt_project.yml file
       timeout_seconds: 300
       # job_execution_timeout_seconds: 300
       job_retries: 1
-      location: US
-      priority: interactive
+      location: us-west2
+      priority: batch

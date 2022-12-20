@@ -39,9 +39,10 @@ from airflow.utils.trigger_rule import TriggerRule
 PROJECT_ID = os.getenv("GCP_PROJECT")
 
 AIRFLOW_DATA_PATH = '/home/airflow/gcs/data'
-FILE_NAME = 'PS_20174392719_1491204439457_log'
+# FILE_NAME = 'PS_20174392719_1491204439457_log'
+FILE_NAME = 'raw_fraud'
 
-TOPIC_NAME = 'coba-stream'
+TOPIC_NAME = 'fraud-stream'
 TOPIC_ID = f'projects/{PROJECT_ID}/topics/{TOPIC_NAME}'
 SUBS_NAME = f'{TOPIC_NAME}-sub'
 SUBS_ID = f'projects/{PROJECT_ID}/subscriptions/{SUBS_NAME}'
@@ -55,17 +56,19 @@ def push_messages():
 
         for row in itertools.islice(csvreader, 35):
             features = {
-                "step": int(row[0]), 
-                "type": str(row[1]), 
-                "amount": float(row[2]), 
-                "nameOrig": str(row[3]), 
-                "oldbalanceOrg": float(row[4]), 
-                "newbalanceOrig": float(row[5]), 
-                "nameDest": str(row[6]), 
-                "oldbalanceDest": float(row[7]), 
-                "newbalanceDest": float(row[8]), 
-                "isFraud": int(row[9]), 
-                "isFlaggedFraud": int(row[10])
+                "transactionID": int(row[0]),
+                "step": int(row[1]), 
+                "type": str(row[2]), 
+                "amount": float(row[3]), 
+                "nameOrig": str(row[4]), 
+                "oldbalanceOrg": float(row[5]), 
+                "newbalanceOrig": float(row[6]), 
+                "nameDest": str(row[7]), 
+                "oldbalanceDest": float(row[8]), 
+                "newbalanceDest": float(row[9]), 
+                "isFraud": int(row[10]), 
+                "isFlaggedFraud": int(row[11]),
+                "timestamp": str(row[12])
             }
             try:
                 attr_json = json.dumps(features)
@@ -87,6 +90,7 @@ def bq_api():
     dataset_bq = client_bq.dataset(DATASET_NAME)
 
     schema = [
+        bigquery.SchemaField('transactionID', 'INTEGER'),
         bigquery.SchemaField('step', 'INTEGER'),
         bigquery.SchemaField('type', 'STRING'),
         bigquery.SchemaField('amount', 'FLOAT'),
@@ -97,7 +101,8 @@ def bq_api():
         bigquery.SchemaField('oldbalanceDest', 'FLOAT'),
         bigquery.SchemaField('newbalanceDest', 'FLOAT'),
         bigquery.SchemaField('isFraud', 'INTEGER'),
-        bigquery.SchemaField('isFlaggedFraud', 'INTEGER')
+        bigquery.SchemaField('isFlaggedFraud', 'INTEGER'),
+        bigquery.SchemaField('timestamp', 'STRING'),
     ]
 
     table_ref = bigquery.TableReference(dataset_bq, TABLE_NAME)
