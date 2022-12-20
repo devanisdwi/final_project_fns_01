@@ -1,5 +1,9 @@
-target/
+target/compiled/
+target/run/
+target/run_results.json
+target/index.html
+target/graph.gpickle
+target/partial_parse.msgpack
 dbt_packages/
 logs/
-*.json
 __pycache__

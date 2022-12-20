@@ -9,129 +9,129 @@ sources:
         identifier: raw_fraud
 
 models:
-      - name: stg__fraud
-        description: A temporary area where the most recent data is stored after batch processing.
-        columns:
-          - name: id_transaction
-            description: Primary key from this table.
-            tests:
-              - unique:
-                  severity: warn
-              - not_null:
-                  severity: warn
-          - name: step
-            description: >
-              Maps a unit of time in the real world. In this case 1 step is 1 hour of time. Total steps 744 (30 days simulation).
-            tests:
-              - not_null:
-                  severity: warn
-          - name: date_transaction
-            description: The date and time that occurred at the time of the transaction.
-            tests:
-              - not_null:
-                  severity: warn
-          - name: payment_type
-            description: >
-              The payment method used during the transaction, including:
-                1. CASH-IN
-                2. CASH-OUT
-                3. DEBIT
-                4. PAYMENT
-                5. TRANSFER
-            tests:
-              - not_null:
-                  severity: warn
-              - accepted_values:
-                  values: ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
-                  severity: warn
-          - name: amount
-            description: The amount of the transaction in local currency.
-          - name: name_sender
-            description: Customer who started the transaction.
-            tests:
-              - not_null:
-                  severity: warn
-          - name: old_balance_sender
-            description: Initial balance before the transaction
-            tests:
-              - not_null:
-                  severity: warn
-          - name: new_balance_sender
-            description: New balance after the transaction.
-            tests:
-              - not_null:
-                  severity: warn
-          - name: name_recipient
-            description: Customer who is the recipient of the transaction.
-            tests:
-              - not_null:
-                  severity: warn
-          - name: old_balance_recipient
-            description: >
-              Initial balance recipient before the transaction. Note that there is not information for customers that start with M (Merchants).
-            tests:
-              - not_null:
-                  severity: warn
-          - name: new_balance_recipient
-            description: >
-              New balance recipient after the transaction. Note that there is not information for customers that start with M (Merchants).
-            tests:
-              - not_null:
-                  severity: warn
-          - name: is_fraud
-            description: >
-              Transactions fraud predictions made by The Fraudulent Agents iside the simulation based on empty th funds of customer account by transferring to another account then cashing out of the system.
-            tests:
-              - not_null:
-                  severity: warn
-              - accepted_values:
-                  values: ['Fraud', 'Not Fraud']
-                  severity: warn
-          - name: is_flagged_fraud
-            description: >
-              Fraud with the condition of attempting to transfer more than 200,000 in a single transaction.
-            tests:
-              - not_null:
-                  severity: warn
-              - accepted_values:
-                  values: ['Fraud', 'Not Fraud']
-                  severity: warn
-              
-      - name: clustered__fraud
+  - name: stg__fraud
+    description: A temporary area where the most recent data is stored after batch processing.
+    columns:
+      - name: id_transaction
+        description: Primary key from this table.
+        tests:
+          - unique:
+              severity: warn
+          - not_null:
+              severity: warn
+      - name: step
         description: >
-          Clustered View by Fraud Status, aims to:
-          Automatically organized based on the contents of one or more columns in the table’s schema.
+          Maps a unit of time in the real world. In this case 1 step is 1 hour of time. Total steps 744 (30 days simulation).
+        tests:
+          - not_null:
+              severity: warn
+      - name: date_transaction
+        description: The date and time that occurred at the time of the transaction.
+        tests:
+          - not_null:
+              severity: warn
+      - name: payment_type
+        description: >
+          The payment method used during the transaction, including:
+            1. CASH-IN
+            2. CASH-OUT
+            3. DEBIT
+            4. PAYMENT
+            5. TRANSFER
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
+              severity: warn
+      - name: amount
+        description: The amount of the transaction in local currency.
+      - name: name_sender
+        description: Customer who started the transaction.
+        tests:
+          - not_null:
+              severity: warn
+      - name: old_balance_sender
+        description: Initial balance before the transaction
+        tests:
+          - not_null:
+              severity: warn
+      - name: new_balance_sender
+        description: New balance after the transaction.
+        tests:
+          - not_null:
+              severity: warn
+      - name: name_recipient
+        description: Customer who is the recipient of the transaction.
+        tests:
+          - not_null:
+              severity: warn
+      - name: old_balance_recipient
+        description: >
+          Initial balance recipient before the transaction. Note that there is not information for customers that start with M (Merchants).
+        tests:
+          - not_null:
+              severity: warn
+      - name: new_balance_recipient
+        description: >
+          New balance recipient after the transaction. Note that there is not information for customers that start with M (Merchants).
+        tests:
+          - not_null:
+              severity: warn
+      - name: is_fraud
+        description: >
+          Transactions fraud predictions made by The Fraudulent Agents iside the simulation based on empty th funds of customer account by transferring to another account then cashing out of the system.
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: ['Fraud', 'Not Fraud']
+              severity: warn
+      - name: is_flagged_fraud
+        description: >
+          Fraud with the condition of attempting to transfer more than 200,000 in a single transaction.
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: ['Fraud', 'Not Fraud']
+              severity: warn
 
-      - name: clustered__payment_type
-        description: >
-          Clustered View by Payment Type, aims to:
-          Automatically organized based on the contents of one or more columns in the table’s schema.
-          
-      - name: dim__payment_type
-        description: List of unique payment type.
-          
-      - name: dim__recipient
-        description: List of unique recipient's name.
-          
-      - name: dim__sender
-        description: List of unique sender's name.
+  - name: clustered__fraud
+    description: >
+      Clustered View by Fraud Status, aims to:
+      Automatically organized based on the contents of one or more columns in the table’s schema.
 
-      - name: fact__tables
-        description: >
-          The table contains records where both (fraud and not fraud status) are valid. 
-          Each record corresponds to a trip uniquely identified by id_transactions.
-          
-      - name: nested__recipient
-        description: >
-          Nested for Repeated Fields by name_recipient, aims to: represent foreign entities inline.
-          
-      - name: nested__sender
-        description: >
-          Nested for Repeated Fields by name_sender, aims to: represent foreign entities inline.
-          
-      - name: partitioned__dates
-        description: >
-          Partitioned View by Date, aims to:
-          1. Easier to manage and query data
-          2. Improve query performance
-          3. Control costs by reducing the number of bytes read by a query
+  - name: clustered__payment_type
+    description: >
+      Clustered View by Payment Type, aims to:
+      Automatically organized based on the contents of one or more columns in the table’s schema.
+      
+  - name: dim__payment_type
+    description: List of unique payment type.
+      
+  - name: dim__recipient
+    description: List of unique recipient's name.
+      
+  - name: dim__sender
+    description: List of unique sender's name.
+
+  - name: fact__tables
+    description: >
+      The table contains records where both (fraud and not fraud status) are valid. 
+      Each record corresponds to a trip uniquely identified by id_transactions.
+      
+  - name: nested__recipient
+    description: >
+      Nested for Repeated Fields by name_recipient, aims to: represent foreign entities inline.
+      
+  - name: nested__sender
+    description: >
+      Nested for Repeated Fields by name_sender, aims to: represent foreign entities inline.
+      
+  - name: partitioned__dates
+    description: >
+      Partitioned View by Date, aims to:
+      1. Easier to manage and query data
+      2. Improve query performance
+      3. Control costs by reducing the number of bytes read by a query

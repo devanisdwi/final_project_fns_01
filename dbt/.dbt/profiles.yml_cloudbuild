@@ -1,0 +1,38 @@
+# https://github.com/GoogleCloudPlatform/professional-services/blob/main/examples/dbt-on-cloud-composer/optimized/dbt-project/.dbt/profiles.yml
+transformation:
+  target: local
+  outputs:
+    local:
+      type: bigquery
+      method: oauth
+      project: "{{ var('project_id') }}"
+      schema: dev
+      threads: 2
+      timeout_seconds: 10
+      location: "{{ var('bigquery_location') }}"
+      priority: batch
+      retries: 0
+
+    remote:
+      type: bigquery
+      method: service-account
+      project: "{{ var('project_id') }}"
+      schema: prod
+      threads: 10
+      keyfile: "{{ var('key_file_dir') }}"
+      timeout_seconds: 300
+      location: "{{ var('bigquery_location') }}"
+      priority: batch
+      retries: 5
+
+    cloud-build:
+      type: bigquery
+      method: oauth
+      project: "{{ var('project_id') }}"
+      schema: dev
+      threads: 2
+      timeout_seconds: 10
+      location: "{{ var('bigquery_location') }}"
+      priority: batch
+      retries: 0
+      impersonate_service_account: "{{ var('impersonate_service_account') }}"

@@ -185,13 +185,13 @@ default_args = {
 }
 
 with DAG(
-    'fraud-online-pipeline',
+    'batch-fraud-online',
     # schedule_interval="@daily",
     default_args=default_args,
-    description='End to End Online Fraud ELTL',
+    description='Batch Online Fraud ELTL',
     dagrun_timeout=timedelta(minutes=20),
     max_active_runs=1,
-    tags=['fns1-fp']
+    tags=['fns1-bf']
 ) as dag:
 
     download_to_gcs_task = BashOperator(
