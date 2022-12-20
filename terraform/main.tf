@@ -35,7 +35,12 @@ module "composer_sa" {
       "roles/logging.logWriter",
       "roles/monitoring.metricWriter",
       "roles/iam.serviceAccountUser",
-      "roles/composer.ServiceAgentV2Ext"
+      "roles/composer.ServiceAgentV2Ext",
+      "roles/bigquery.admin",
+      "roles/container.admin",
+      "roles/storagetransfer.serviceAgent",
+      "roles/pubsub.editor",
+      "roles/composer.admin"
     ]
   }
   iam = var.owners != null ? { "roles/iam.serviceAccountTokenCreator" = var.owners } : {}
@@ -50,7 +55,7 @@ resource "google_composer_environment" "env-fns-prod2" {
     software_config {
       image_version  = var.composer2_image
       env_variables = {
-        KAGGLE_USERNAME = var.kaggle_key
+        KAGGLE_USERNAME = var.kaggle_username
         KAGGLE_KEY = var.kaggle_key
        }
       pypi_packages = {
@@ -85,32 +90,11 @@ resource "google_composer_environment" "env-fns-prod2" {
         max_count  = 3
       }
 
-
     }
     environment_size = "ENVIRONMENT_SIZE_MEDIUM"
 
     node_config {
       service_account = module.composer_sa.email
     }
-  }
-
-  provisioner "local-exec" {
-    when    = create
-    command = <<-EOT
-    gcloud composer environments storage dags import \
-    --environment env-fns-prod2 \
-    --location us-west1 \
-    --source="../dags/batch_fraud_online.py"
-
-    gcloud composer environments storage dags import \
-    --environment env-fns-prod2 \
-    --location us-west1 \
-    --source="../dags/stream_fraud_pubsub.py"
-
-    gcloud composer environments storage dags import \
-    --environment env-fns-prod2 \
-    --location us-west1 \
-    --source="../dbt"
-    EOT
   }
 }
