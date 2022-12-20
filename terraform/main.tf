@@ -58,7 +58,7 @@ resource "google_composer_environment" "env-fns-prod2" {
         jsonschema = ""
         kaggle = ">=1.5.12"
         packaging = ""
-        pyarrow = ""
+        pyarrow = ">=9.0.0"
         google-cloud-storage= ">=2.6.0"
         airflow-dbt = ">=0.4.0"
         dbt-bigquery= ">=1.3.0"
