@@ -1,13 +1,11 @@
+#!/usr/bin/python3
 """ SECOND DAG FOR STREAMING DATA PIPELINE """
-# https://cloud.google.com/python/docs/reference/pubsub/latest
-# https://github.com/fahrulrozim/final-project/tree/main/pubsub-stream
-# https://airflow.apache.org/docs/apache-airflow-providers-google/stable/operators/cloud/pubsub.html
 import os
 import csv
 import json
 import airflow
+
 import logging
-import json
 import base64
 import itertools
 import pandas as pd
@@ -36,6 +34,7 @@ from airflow.providers.google.cloud.operators.pubsub import (
 from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
 from airflow.utils.trigger_rule import TriggerRule
 
+######################################### Variables ######################################################
 PROJECT_ID = os.getenv("GCP_PROJECT")
 
 AIRFLOW_DATA_PATH = '/home/airflow/gcs/data'
@@ -46,6 +45,7 @@ TOPIC_NAME = 'fraud-stream'
 TOPIC_ID = f'projects/{PROJECT_ID}/topics/{TOPIC_NAME}'
 SUBS_NAME = f'{TOPIC_NAME}-sub'
 SUBS_ID = f'projects/{PROJECT_ID}/subscriptions/{SUBS_NAME}'
+##########################################################################################################
 
 def push_messages():
     publisher = pubsub_v1.PublisherClient()
@@ -121,6 +121,8 @@ def pull_messages():
         # print(f'Received message: {message}')
         data = message.data.decode('utf-8')
         print(f'data: {data}')
+        client_bq.insert_rows_from_dataframe(table, pd.DataFrame([data]))
+        print('[INFO] Data Loaded to BigQuery')
         # data_row.append(data)
 
         message.ack()
@@ -131,8 +133,6 @@ def pull_messages():
     with subs_client: # Automate the response
         try:
             stream_msg.result() # see the messages
-            # client_bq.insert_rows_from_dataframe(table, pd.DataFrame(data_row))
-            # print('[INFO] Data Loaded to BigQuery')
             # data_row.clear()
         except TimeoutError:
             stream_msg.cancel() # force
@@ -145,8 +145,7 @@ def create_subscription(topic=TOPIC_NAME, subscription=SUBS_NAME):
 def delete_subscription(subs_name=SUBS_NAME):
     PubSubHook().delete_subscription(subscription=subs_name)
 
-################################## DAGS #########################################
-
+############################################ DAG #########################################################
 default_args = {
     "owner": "fastandseriouse",
     'depends_on_past': False,
@@ -217,3 +216,8 @@ with DAG(
     pull_messages_task >> delete_subscription_task >> delete_topic_task
     push_messages_task >> delete_topic_task
     #############################################################################################################
+
+# https://cloud.google.com/python/docs/reference/pubsub/latest
+# https://github.com/fahrulrozim/final-project/tree/main/pubsub-stream
+# https://medium.com/@montadhar/how-to-setup-cloud-composer-with-dbt-f9f657eb392a
+# https://airflow.apache.org/docs/apache-airflow-providers-google/stable/operators/cloud/pubsub.html

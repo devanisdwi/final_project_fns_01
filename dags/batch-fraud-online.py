@@ -1,10 +1,19 @@
+#!/usr/bin/python3
 """ FIRST DAG FOR BATCHING DATA PIPELINE """
 import os
 import airflow
 import logging
 import json
+
+import pyarrow as pa
+import pyarrow.csv as pv
+import pyarrow.json as jsw
+import pyarrow.parquet as pq
+
 from airflow import DAG
+from datetime import timedelta
 from google.cloud import bigquery
+from google.cloud import storage
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python import PythonOperator
 
@@ -16,7 +25,7 @@ from airflow_dbt.operators.dbt_operator import (
     DbtTestOperator,
     DbtDocsGenerateOperator,
 )
-# https://stackoverflow.com/questions/55391105/location-of-home-airflow
+
 from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryCreateEmptyDatasetOperator,
     BigQueryCreateExternalTableOperator,
@@ -24,15 +33,8 @@ from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryInsertJobOperator,
 )
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
-from datetime import timedelta
-# Imports the Google Cloud client library
-from google.cloud import storage
 
-import pyarrow as pa
-import pyarrow.csv as pv
-import pyarrow.json as jsw
-import pyarrow.parquet as pq
-
+######################################### Variables ######################################################
 PROJECT_ID = 'final-project-team1'
 BUCKET_NAME = 'us-west2-env-fns-test2-e8f06b0a-bucket'
 AIRFLOW_DATA_PATH = '/home/airflow/gcs/data'
@@ -51,8 +53,7 @@ project = os.getenv("GCP_PROJECT")
 
 # Airflow macro - Execution date
 DS = '{{ ds }}'
-
-#################################################################################################
+##########################################################################################################
 # Functions to pass into dags
 def format_to_parquet(src_file: str):
     """Convert CSV file to PARQUET file format"""
@@ -60,39 +61,14 @@ def format_to_parquet(src_file: str):
         logging.error('Can only accept source files in CSV format, for the moment')
         return
 
-    # storage_client = storage.Client()
-
-    # bucket = storage_client.bucket(BUCKET_NAME)
-    # blob = bucket.blob(f'{FILE_NAME}.csv')
-    # blob.download_to_filename(f'{FILE_NAME}.csv')
     client_bq = bigquery.Client(location='us-west2')
     client_bq.create_dataset(DATASET_ID, exists_ok=True)
 
     src_file = f'{AIRFLOW_DATA_PATH}/{FILE_NAME}.csv'
-    # fs = gcsfs.GCSFileSystem(project='foo')
-    # with fs.open("bucket/foo/bar.csv", 'rb') as csv_file:
-    #     pv.read_csv(csv_file)
     table = pv.read_csv(src_file)
     pq.write_table(table, src_file.replace('.csv', '.parquet'))
 
-def upload_to_gcs(bucket: str, object_name: str, local_file: str):
-    """
-    Ref: https://cloud.google.com/storage/docs/uploading-objects#storage-upload-object-python
-    * bucket: GCS bucket name (existed)
-    * object_name: target path & file-name
-    * local_file: source path & file-name\n
-    -> return log
-    """
-    
-    storage_client = storage.Client()
-
-    buckt = storage_client.bucket(bucket)
-
-    blob = buckt.blob(object_name)
-    blob.upload_from_filename(local_file)
-
-#################################################################################################
-
+############################################ DAG #########################################################
 default_args = {
     "owner": "fastandseriouse",
     'depends_on_past': False,
@@ -184,4 +160,9 @@ with DAG(
 
     download_to_gcs_task >> unzip_dataset_task >> format_to_parquet_task >> gcs_to_bigquery\
         >> dbt_run_staging >> dbt_test_staging >> dbt_run_warehouse >> dbt_run_datamart
-    #############################################################################################################
+    ############################################################################################################
+
+# https://docs.astronomer.io/learn/airflow-dbt
+# https://stackoverflow.com/questions/55391105/location-of-home-airflow
+# https://groups.google.com/g/cloud-composer-discuss/c/Lf0wa2ccI2c
+# https://github.com/GoogleCloudPlatform/professional-services/blob/main/examples/dbt-on-cloud-composer
