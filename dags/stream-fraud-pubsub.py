@@ -190,5 +190,4 @@ with DAG(
     call_dataset_task >> create_topic_task >> push_messages_task
     call_dataset_task >> create_topic_task >> pull_messages_task
 
-    push_messages_task >> delete_topic_task
     pull_messages_task >> delete_topic_task
