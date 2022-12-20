@@ -113,29 +113,31 @@ def bq_api():
 
 def pull_messages():
     timeout = 5.0
-    subscriber = pubsub_v1.SubscriberClient()
+    subs_client = pubsub_v1.SubscriberClient()
     client_bq, table = bq_api()
+    data_row = []
 
     def callback(message):
         # print(f'Received message: {message}')
-
-        if message is not None:
-            data = message.data.decode('utf-8')
-            print(f'data: {message.data}')
-            client_bq.insert_rows_from_dataframe(table, pd.DataFrame([data]))
-            print('[INFO] Data Loaded to BigQuery')
+        data = message.data.decode('utf-8')
+        print(f'data: {data}')
+        # data_row.append(data)
 
         message.ack()
 
-    stream_msg = subscriber.subscribe(SUBS_ID, callback=callback)
+    stream_msg = subs_client.subscribe(SUBS_ID, callback=callback)
     print(f'Listening for messages on {SUBS_ID}')
 
-    with subscriber: # Automate the response
+    with subs_client: # Automate the response
         try:
             stream_msg.result() # see the messages
+            # client_bq.insert_rows_from_dataframe(table, pd.DataFrame(data_row))
+            # print('[INFO] Data Loaded to BigQuery')
+            # data_row.clear()
         except TimeoutError:
             stream_msg.cancel() # force
             stream_msg.result()
+    # print(data_row)
 
 def create_subscription(topic=TOPIC_NAME, subscription=SUBS_NAME):
     PubSubHook().create_subscription(topic=topic, subscription=subscription)
@@ -159,7 +161,7 @@ with DAG(
     # schedule_interval="@daily",
     default_args=default_args,
     description='Streaming Online Fraud ELTL',
-    dagrun_timeout=timedelta(minutes=20),
+    dagrun_timeout=timedelta(minutes=5),
     max_active_runs=1,
     tags=['fns1-sf']
 ) as dag:
@@ -213,4 +215,5 @@ with DAG(
     call_dataset_task >> create_topic_task >> create_subscription_task >> pull_messages_task
 
     pull_messages_task >> delete_subscription_task >> delete_topic_task
+    push_messages_task >> delete_topic_task
     #############################################################################################################
