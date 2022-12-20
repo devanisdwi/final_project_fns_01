@@ -23,6 +23,7 @@ from airflow import DAG
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python import PythonOperator
 
+from airflow.providers.google.cloud.hooks.pubsub import PubSubHook
 from airflow.providers.google.cloud.operators.pubsub import (
     PubSubCreateSubscriptionOperator,
     PubSubCreateTopicOperator,
@@ -40,9 +41,9 @@ AIRFLOW_DATA_PATH = '/home/airflow/gcs/data'
 FILE_NAME = 'PS_20174392719_1491204439457_log'
 
 TOPIC_NAME = 'coba-stream'
-TOPIC_ID = f'projects/final-project-team1/topics/{TOPIC_NAME}'
-# SUBS_NAME = 'coba-stream-sub'
-SUBS_ID = f'projects/final-project-team1/subscriptions/{TOPIC_NAME}'
+TOPIC_ID = f'projects/{PROJECT_ID}/topics/{TOPIC_NAME}'
+SUBS_NAME = f'{TOPIC_NAME}-sub'
+SUBS_ID = f'projects/{PROJECT_ID}/subscriptions/{SUBS_NAME}'
 
 def push_messages():
     publisher = pubsub_v1.PublisherClient()
@@ -101,13 +102,13 @@ def bq_api():
     table_ref = bigquery.TableReference(dataset_bq, TABLE_NAME)
     table = bigquery.Table(table_ref, schema=schema)
     client_bq.create_table(table, exists_ok=True)
-    table_id = f'{DATASET_NAME}.{TABLE_NAME}'
-    return client_bq, table_id
+    # table_id = f'{DATASET_NAME}.{TABLE_NAME}'
+    return client_bq, table
 
 def pull_messages():
     timeout = 5.0
     subscriber = pubsub_v1.SubscriberClient()
-    client_bq, table_id = bq_api()
+    client_bq, table = bq_api()
 
     def callback(message):
         # print(f'Received message: {message}')
@@ -115,7 +116,7 @@ def pull_messages():
         if message is not None:
             data = message.data.decode('utf-8')
             print(f'data: {message.data}')
-            client_bq.insert_rows_from_dataframe(table_id, pd.DataFrame([data]))
+            client_bq.insert_rows_from_dataframe(table, pd.DataFrame([data]))
             print('[INFO] Data Loaded to BigQuery')
 
         message.ack()
@@ -128,7 +129,13 @@ def pull_messages():
             stream_msg.result() # see the messages
         except TimeoutError:
             stream_msg.cancel() # force
-            stream_msg.result() 
+            stream_msg.result()
+
+def create_subscription(topic=TOPIC_NAME, subscription=SUBS_NAME):
+    PubSubHook().create_subscription(topic=topic, subscription=subscription)
+
+def delete_subscription(subs_name=SUBS_NAME):
+    PubSubHook().delete_subscription(subscription=subs_name)
 
 ################################## DAGS #########################################
 
@@ -159,7 +166,6 @@ with DAG(
     create_topic_task = PubSubCreateTopicOperator(
         task_id="create_topic_task",
         topic=TOPIC_NAME,
-        project_id=PROJECT_ID,
         fail_if_exists=False
     )
 
@@ -174,20 +180,31 @@ with DAG(
     #     topic=TOPIC_NAME
     # )
 
+    create_subscription_task = PythonOperator(
+        task_id="create_subscription_task",
+        python_callable=create_subscription,
+    )
+
     pull_messages_task = PythonOperator(
         task_id="pull_messages_task",
         python_callable=pull_messages,
     )
 
+    delete_subscription_task = PythonOperator(
+        task_id="delete_subscription_task",
+        python_callable=delete_subscription,
+    )
+
     delete_topic_task = PubSubDeleteTopicOperator(
         task_id="delete_topic_task", 
-        topic=TOPIC_NAME, 
-        project_id=PROJECT_ID)
+        topic=TOPIC_NAME
+    )
 
     delete_topic_task.trigger_rule = TriggerRule.ALL_DONE
 
-    ######################################### Run the Dags ######################################################
-    call_dataset_task >> create_topic_task >> push_messages_task
-    call_dataset_task >> create_topic_task >> pull_messages_task
+    ######################################### Run the Dag ######################################################
+    call_dataset_task >> create_topic_task >> create_subscription_task >> push_messages_task
+    call_dataset_task >> create_topic_task >> create_subscription_task >> pull_messages_task
 
-    pull_messages_task >> delete_topic_task
+    pull_messages_task >> delete_subscription_task >> delete_topic_task
+    #############################################################################################################

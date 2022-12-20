@@ -9,7 +9,6 @@ sources:
         identifier: raw_fraud
 
 models:
-<<<<<<< HEAD
   - name: stg__fraud
     description: A temporary area where the most recent data is stored after batch processing.
     columns:
