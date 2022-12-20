@@ -4,8 +4,7 @@ transformation: # this needs to match the profile in your dbt_project.yml file
     dev:
       type: bigquery
       method: oauth
-      project: final-project-team1 # Replace this with your project id
-      dataset: dags_results # Replace this with dbt_your_name, e.g. dbt_bilbo
+      dataset: final_project_data # Replace this with dbt_your_name, e.g. dbt_bilbo
       threads: 1
       timeout_seconds: 300
       # job_execution_timeout_seconds: 300

@@ -4,6 +4,7 @@ import airflow
 import logging
 import json
 from airflow import DAG
+from google.cloud import bigquery
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python import PythonOperator
 
@@ -16,12 +17,13 @@ from airflow_dbt.operators.dbt_operator import (
     DbtDocsGenerateOperator,
 )
 # https://stackoverflow.com/questions/55391105/location-of-home-airflow
-from airflow.providers.google.cloud.operators.bigquery import (
-    BigQueryCreateEmptyDatasetOperator,
-    BigQueryCreateExternalTableOperator,
-    BigQueryDeleteDatasetOperator,
-    BigQueryInsertJobOperator,
-)
+# from airflow.providers.google.cloud.operators.bigquery import (
+#     BigQueryCreateEmptyDatasetOperator,
+#     BigQueryCreateExternalTableOperator,
+#     BigQueryDeleteDatasetOperator,
+#     BigQueryInsertJobOperator,
+# )
+from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from datetime import timedelta
 # Imports the Google Cloud client library
 from google.cloud import storage
@@ -35,7 +37,8 @@ PROJECT_ID = 'final-project-team1'
 BUCKET_NAME = 'us-west2-env-fns-test2-e8f06b0a-bucket'
 AIRFLOW_DATA_PATH = '/home/airflow/gcs/data'
 FILE_NAME = 'PS_20174392719_1491204439457_log'
-DATASET_ID = 'dags_tests2_full'
+DATASET_ID = 'final_project_data'
+TABLE_NAME = 'raw_data'
 
 # The environment variables from Cloud Composer
 env = Variable.get("run_environment")
@@ -57,13 +60,15 @@ def format_to_parquet(src_file: str):
     # bucket = storage_client.bucket(BUCKET_NAME)
     # blob = bucket.blob(f'{FILE_NAME}.csv')
     # blob.download_to_filename(f'{FILE_NAME}.csv')
+    client_bq = bigquery.Client()
+    client_bq.create_dataset(DATASET_ID, exists_ok=True)
 
-    src_file = f'{AIRFLOW_DATA_PATH}/{FILE_NAME}.csv'
-    # fs = gcsfs.GCSFileSystem(project='foo')
-    # with fs.open("bucket/foo/bar.csv", 'rb') as csv_file:
-    #     pv.read_csv(csv_file)
-    table = pv.read_csv(src_file)
-    pq.write_table(table, src_file.replace('.csv', '.parquet'))
+    # src_file = f'{AIRFLOW_DATA_PATH}/{FILE_NAME}.csv'
+    # # fs = gcsfs.GCSFileSystem(project='foo')
+    # # with fs.open("bucket/foo/bar.csv", 'rb') as csv_file:
+    # #     pv.read_csv(csv_file)
+    # table = pv.read_csv(src_file)
+    # pq.write_table(table, src_file.replace('.csv', '.parquet'))
 
 def upload_to_gcs(bucket: str, object_name: str, local_file: str):
     """
@@ -90,7 +95,7 @@ default_args = {
     'retries': 0,
     'retry_delay': timedelta(minutes=5),
     'dir': f'/home/airflow/gcs/dags/dbt',
-    'profiles_dir' : f'/home/airflow/gcs/data/profiles'
+    'profiles_dir' : f'/home/airflow/gcs/dags/dbt/.dbt'
 }
 
 with DAG(
@@ -121,24 +126,27 @@ with DAG(
         },
     )
 
-    create_empty_stg = BigQueryCreateEmptyDatasetOperator(
-        task_id="create_empty_stg_dataset", 
-        dataset_id=f'{DATASET_ID}'
-    )
+    # gcs_to_bigquery = BigQueryCreateExternalTableOperator(
+    #     task_id="gcs_to_bigquery_task",
+    #     table_resource={
+    #         "tableReference": {
+    #             "projectId": f"{PROJECT_ID}",
+    #             "datasetId": f"{DATASET_ID}",
+    #             "tableId": "raw_fraud",
+    #         },
+    #         "externalDataConfiguration": {
+    #             "sourceFormat": "PARQUET",
+    #             "sourceUris": [f"gs://{BUCKET_NAME}/data/{FILE_NAME}.parquet"],
+    #         },
+    #     },
+    # )
 
-    gcs_to_bigquery = BigQueryCreateExternalTableOperator(
+    gcs_to_bigquery = GCSToBigQueryOperator(
         task_id="gcs_to_bigquery_task",
-        table_resource={
-            "tableReference": {
-                "projectId": f"{PROJECT_ID}",
-                "datasetId": f"{DATASET_ID}",
-                "tableId": "fraud_online_success_full_dag",
-            },
-            "externalDataConfiguration": {
-                "sourceFormat": "PARQUET",
-                "sourceUris": [f"gs://{BUCKET_NAME}/data/{FILE_NAME}.parquet"],
-            },
-        },
+        source_format='CSV',
+        bucket=f"{BUCKET_NAME}",
+        source_objects = [f"data/{FILE_NAME}.csv"],
+        destination_project_dataset_table = f'{DATASET_ID}.{TABLE_NAME}',
     )
 
     dbt_run_staging = DbtRunOperator(
@@ -167,9 +175,8 @@ with DAG(
     )
 
     ######################################### Run the Dag ######################################################
-    download_to_gcs_task >> unzip_dataset_task >> format_to_parquet_task >> create_empty_stg >> gcs_to_bigquery\
-        >> dbt_docs_gen
+    download_to_gcs_task >> unzip_dataset_task >> format_to_parquet_task >> gcs_to_bigquery >> dbt_docs_gen
 
-    download_to_gcs_task >> unzip_dataset_task >> format_to_parquet_task >> create_empty_stg >> gcs_to_bigquery\
+    download_to_gcs_task >> unzip_dataset_task >> format_to_parquet_task >> gcs_to_bigquery\
         >> dbt_run_staging >> dbt_test_staging >> dbt_run_warehouse >> dbt_run_datamart
     #############################################################################################################

@@ -12,5 +12,5 @@ SELECT
     newbalanceDest as new_balance_recipient,
     {{ decode_isFraud('isFraud') }} as is_fraud,
     {{ decode_isFlaggedFraud('isFlaggedFraud') }} as is_flagged_fraud,
-FROM {{ source('dbt_testing', 'raw_fraud') }}
+FROM {{ source('final_project_data', 'raw_fraud') }}
 ORDER BY timestamp

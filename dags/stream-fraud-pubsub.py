@@ -1,4 +1,5 @@
 """ SECOND DAG FOR STREAMING DATA PIPELINE """
+# https://cloud.google.com/python/docs/reference/pubsub/latest
 # https://github.com/fahrulrozim/final-project/tree/main/pubsub-stream
 # https://airflow.apache.org/docs/apache-airflow-providers-google/stable/operators/cloud/pubsub.html
 import os

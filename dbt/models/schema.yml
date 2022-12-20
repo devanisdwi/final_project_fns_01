@@ -1,8 +1,8 @@
 version: 2
 
 sources:
-  - name: dbt_testing
-    schema: dbt_testing
+  - name: final_project_data
+    schema: final_project_data
     description: Pipeline dataset regarding the detection of fraudulent transactions.
     tables:
       - name: raw_fraud
