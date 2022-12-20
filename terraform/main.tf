@@ -4,7 +4,7 @@ provider "google" {
 }
 
 module "composer_project" {
-  source          = "github.com/GoogleCloudPlatform/cloud-foundation-fabric/modules/project"
+  source          = "github.com/GoogleCloudPlatform/cloud-foundation-fabric/tree/master/modules/project"
   billing_account = var.billing_account_id
   prefix          = var.prefix
   name            = var.project_id
@@ -25,7 +25,7 @@ module "composer_project" {
 }
 
 module "composer_sa" {
-  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric/modules/iam-service-account?ref=v5.1.0"
+  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric/tree/master/modules/iam-service-account?ref=v5.1.0"
   project_id = module.composer_project.project_id
   name       = "composer-sa"
   iam_project_roles = {
