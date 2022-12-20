@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+{{ config(materialized='table') }}
+
+>>>>>>> dbt-test
 with fact__tables as (
     SELECT * 
     FROM {{ ref('stg__fraud') }}
