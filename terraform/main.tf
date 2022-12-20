@@ -11,10 +11,10 @@ module "composer_project" {
   iam_additive = {
     "roles/owner" = var.owners
   }
-  # Required for Cloud Composer
-  policy_boolean = {
-    "constraints/compute.requireOsLogin" = false
-  }
+  # # Required for Cloud Composer
+  # policy_boolean = {
+  #   "constraints/compute.requireOsLogin" = false
+  # }
   services        = [
     "composer.googleapis.com",
     "sourcerepo.googleapis.com",

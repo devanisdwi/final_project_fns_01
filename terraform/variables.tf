@@ -49,6 +49,7 @@ variable "prefix" {
 variable "root_node" {
   description = "Parent folder or organization in 'folders/folder_id' or 'organizations/org_id' format."
   type        = string
+  default     = "IYKRA/iykra01"
 }
 
 variable "billing_account_id" {
@@ -66,4 +67,5 @@ variable "owners" {
 variable "quota_project" {
   description = "Quota project used for admin settings"
   type = string
+  default = "final-t1-quota"
 }
