@@ -10,11 +10,16 @@
 5. Congrats! right now you can go to [Composer Service](https://console.cloud.google.com/composer) to check on the Airflow UI. Besides, you can also check the result of pipeline on every single services, GCS & BigQuery.
 
 ## Architecture ELTL Lambda
+![](https://github.com/devanisdwi/final_project_fns_01/tree/main/imgs/1_architecture_fns.png)
 
 ## Airflow Graph
 ### Streaming Fraud
+![](https://github.com/devanisdwi/final_project_fns_01/tree/main/imgs/2_streaming_pubsub.png)
+
 ### Batch Fraud
+![](https://github.com/devanisdwi/final_project_fns_01/tree/main/imgs/3_batch_airflow.png)
 
 ## DBT Docs
+![](https://github.com/devanisdwi/final_project_fns_01/tree/main/imgs/4_lineage.png)
 
 ## Dashboard

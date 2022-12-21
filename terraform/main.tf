@@ -26,8 +26,27 @@ module "composer_project" {
     "sourcerepo.googleapis.com",
     "bigquery.googleapis.com",
     "iamcredentials.googleapis.com",
-    "pubsub.googleapis.com"
+    "pubsub.googleapis.com",
+    "compute.googleapis.com"
   ]
+}
+
+module "composer_vpc" {
+  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric/modules/net-vpc"
+  project_id = module.composer_project.project_id
+  name       = "composer-vpc"
+  subnets = [{
+    ip_cidr_range      = "10.1.0.0/24"
+    name               = "default"
+    region             = var.region
+    secondary_ip_range = {
+      pods     = "10.16.0.0/14"
+      services = "10.20.0.0/24"
+    }
+  }]
+  # subnet_private_access = {
+  #   "subnet" = true
+  # }
 }
 
 data "google_project" "project" {}
@@ -51,7 +70,9 @@ module "composer_sa" {
       "roles/container.admin",
       "roles/storagetransfer.serviceAgent",
       "roles/pubsub.editor",
-      "roles/composer.admin"
+      "roles/composer.admin",
+      "roles/networkmanagement.admin",
+      "roles/networkconnectivity.hubAdmin"
     ]
   }
   iam = var.owners != null ? { "roles/iam.serviceAccountTokenCreator" = var.owners } : {}
@@ -63,7 +84,29 @@ resource "google_project_iam_binding" "composer-sa-service-agentv2" {
      members = [
          "serviceAccount:service-${data.google_project.project.number}@cloudcomposer-accounts.iam.gserviceaccount.com"
      ]
- }
+}
+
+resource "google_service_account_iam_member" "custom_service_account" {
+  provider = google-beta
+  service_account_id = "projects/${var.project_id}/serviceAccounts/composer-sa@${var.project_id}.iam.gserviceaccount.com"
+  role = "roles/composer.ServiceAgentV2Ext"
+  member = "serviceAccount:service-${data.google_project.project.number}@cloudcomposer-accounts.iam.gserviceaccount.com"
+}
+
+module "composer_firewall" {
+  source       = "github.com/GoogleCloudPlatform/cloud-foundation-fabric/modules/net-vpc-firewall"
+  project_id   = module.composer_project.project_id
+  network      = module.composer_vpc.name
+  # admin_ranges = [module.composer_vpc.subnet_ips["${var.region}/default"]]
+}
+
+module "composer_nat" {
+  source         = "github.com/GoogleCloudPlatform/cloud-foundation-fabric/modules/net-cloudnat"
+  project_id     = module.composer_project.project_id
+  region         = var.region
+  name           = "default"
+  router_network = module.composer_vpc.self_link
+}
 
 # Cloud Composer2 setup
 resource "google_composer_environment" "composer-fns-prod2" {
@@ -113,7 +156,13 @@ resource "google_composer_environment" "composer-fns-prod2" {
     environment_size = "ENVIRONMENT_SIZE_MEDIUM"
 
     node_config {
+      network         = module.composer_vpc.self_link
+      subnetwork      = module.composer_vpc.subnet_self_links["${var.region}/default"]
       service_account = module.composer_sa.email
+    }
+
+    private_environment_config {
+      enable_private_endpoint = true
     }
   }
 }
