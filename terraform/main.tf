@@ -72,7 +72,10 @@ module "composer_sa" {
       "roles/pubsub.editor",
       "roles/composer.admin",
       "roles/networkmanagement.admin",
-      "roles/networkconnectivity.hubAdmin"
+      "roles/networkconnectivity.hubAdmin",
+      "roles/composer.environmentAndStorageObjectAdmin",
+      "roles/composer.sharedVpcAgent",
+      "roles/composer.serviceAgent"
     ]
   }
   iam = var.owners != null ? { "roles/iam.serviceAccountTokenCreator" = var.owners } : {}
@@ -153,7 +156,7 @@ resource "google_composer_environment" "composer-fns-prod2" {
       }
 
     }
-    environment_size = "ENVIRONMENT_SIZE_MEDIUM"
+    # environment_size = "ENVIRONMENT_SIZE_MEDIUM"
 
     node_config {
       network         = module.composer_vpc.self_link
