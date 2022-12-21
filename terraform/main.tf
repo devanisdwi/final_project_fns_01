@@ -4,14 +4,10 @@ resource "random_string" "project_random_string" {
   upper   = false
 }
 
-provider "google" {
-  project = var.project_id
-  region  = var.region
-}
-
-data "google_project" "project" {
-  project_id = var.project_id
-}
+# provider "google" {
+#   project = var.project_id
+#   region  = var.region
+# }
 
 module "composer_project" {
   source          = "github.com/GoogleCloudPlatform/cloud-foundation-fabric/modules/project"
@@ -20,9 +16,6 @@ module "composer_project" {
   name            = var.project_id
   iam_additive = {
     "roles/owner" = var.owners
-  }
-  iam = {
-    "roles/composer.ServiceAgentV2Ext" = ["serviceAccount:service-${data.google_project.project.number}@cloudcomposer-accounts.iam.gserviceaccount.com"]
   }
   # # Required for Cloud Composer
   # policy_boolean = {
@@ -37,10 +30,15 @@ module "composer_project" {
   ]
 }
 
+data "google_project" "project" {}
+
 module "composer_sa" {
   source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric/modules/iam-service-account"
   project_id = module.composer_project.project_id
   name       = "composer-sa"
+  iam_additive = {
+    "roles/composer.ServiceAgentV2Ext" = ["serviceAccount:service-${data.google_project.project.number}@cloudcomposer-accounts.iam.gserviceaccount.com"]
+  }
   iam_project_roles = {
     (module.composer_project.project_id) = [
       "roles/composer.user",
@@ -58,6 +56,14 @@ module "composer_sa" {
   }
   iam = var.owners != null ? { "roles/iam.serviceAccountTokenCreator" = var.owners } : {}
 }
+
+resource "google_project_iam_binding" "composer-sa-service-agentv2" {
+    role    = "roles/composer.ServiceAgentV2Ext"
+    project = var.project_id
+     members = [
+         "serviceAccount:service-${data.google_project.project.number}@cloudcomposer-accounts.iam.gserviceaccount.com"
+     ]
+ }
 
 # Cloud Composer2 setup
 resource "google_composer_environment" "composer-fns-prod2" {
