@@ -47,8 +47,8 @@ module "composer_sa" {
 }
 
 # Cloud Composer2 setup
-resource "google_composer_environment" "env-fns-prod2" {
-  name    = "env-fns-prod2"
+resource "google_composer_environment" "composer-fns-prod2" {
+  name    = "composer-fns-prod2"
   region  = var.region
   project = module.composer_project.project_id
   config {
