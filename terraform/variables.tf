@@ -31,7 +31,7 @@ variable "bq_dataset" {
 variable "project_id" {
   description = "Project ID for the GCP"
   type = string
-  default = "final-prod-t1"
+  default = "final-prod-fns1"
 }
 
 variable "organization" {

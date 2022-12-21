@@ -1,6 +1,16 @@
+resource "random_string" "project_random_string" {
+  length  = 7
+  special = false
+  upper   = false
+}
+
 provider "google" {
   project = var.project_id
   region  = var.region
+}
+
+data "google_project" "project" {
+  project_id = var.project_id
 }
 
 module "composer_project" {
@@ -10,6 +20,9 @@ module "composer_project" {
   name            = var.project_id
   iam_additive = {
     "roles/owner" = var.owners
+  }
+  iam = {
+    "roles/composer.ServiceAgentV2Ext" = ["serviceAccount:service-${data.google_project.project.number}@cloudcomposer-accounts.iam.gserviceaccount.com"]
   }
   # # Required for Cloud Composer
   # policy_boolean = {
